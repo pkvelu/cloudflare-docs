@@ -2045,6 +2045,8 @@ The minimum required Wrangler version to use this command is 3.66.0.
   - The name of the interface to generate for the environment object.
   - Not valid if the Worker uses the Service Worker syntax.
 
+
+
 {/* <!--TODO Add examples of DTS generated output --> */}
 
 ## `workflows`
@@ -2061,7 +2063,7 @@ wrangler workflows list
 
 ### `view` | `describe`
 
-Show the current state of a Workflow.
+Get an existing Hyperdrive configuration.
 
 ```txt
 wrangler workflows view <NAME>
@@ -2107,51 +2109,6 @@ Inspect and interact with specific instances of a Workflow.
 ```txt
 wrangler workflows instances
 ```
-
-### `instances list`
-
-List all instances of a Workflow (running, failed, and completed).
-
-```txt
-wrangler workflows instances list <name>
-```
-
-* `NAME` - `string` (required)
-  * The name of the Workflow to list instances for.
-* `--reverse` - `boolean` (optional)
-  * List instances from oldest to newest (newest at the bottom of the output).
-
-### `instances describe`
-
-Describe a specific Workflow instance. This is useful for debugging a specific run and inspecting its state.
-
-```txt
-wrangler workflows instances list <name> <id>
-```
-
-* `name` - `string` (required)
-  * The name of the Workflow.
-* `id` - `string` (required)
-  * The specific instance ID to describe.
-
-You can describe the most recent instance of a Workflow by using `latest` as a positional. This avoids you needing to get the ID to inspect the latest run of a Workflow.
-
-```sh
-wrangler workflows instances describe my-workflow latest
-```
-
-### `instances terminate`
-
-Terminate a running Workflow instance.
-
-```txt
-wrangler workflows instances terminate <name> <id>
-```
-
-* `name` - `string` (required)
-  * The name of the Workflow.
-* `id` - `string` (required)
-  * The specific instance ID to terminate.
 
 
 ***
@@ -4404,3 +4361,4 @@ wrangler types [<PATH>] [OPTIONS]
 ## `workflows`
 
 Register, configure and manage your [Workflows](/workflows/) and Workflows instances.
+
