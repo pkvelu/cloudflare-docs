@@ -93,10 +93,10 @@ At it's most basic, a step looks like this:
 
 ```ts title="src/index.ts"
 // Import the Workflow definition
-import { Workflow, WorkflowEvent, WorkflowStep } from "cloudflare:workflows"
+import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from "cloudflare:workflows"
 
 // Create your own class that implements a Workflow
-export class MyFirstWorkflow implements Workflow {
+export class MyWorkflow implements WorkflowEntrypoint {
     // Define a run() method
     async run(event: WorkflowEvent, step: WorkflowStep) {
         // Define one or more steps that optionally return state.
@@ -149,7 +149,7 @@ compatibility_date = "2024-08-20"
 
 [[workflows]]
 # The name of the Workflow
-name = "my-first-workflow"
+name = "workflows-tutorial"
 # The binding name, which must be a valid JavaScript variable name.  This will
 # be how you call (run) your Workflow from your other Workers handlers or
 # scripts.
@@ -158,7 +158,7 @@ binding = "MY_WORKFLOW"
  # Must match the "name" of your Worker at the top of wrangler.toml
 script_name = "workflows-tutorial"
 # Must match the class defined in your code that extends the Workflow class
-class_name = "MyFirstWorkflow"
+class_name = "MyWorkflow"
 ```
 
 :::note
@@ -178,27 +178,46 @@ We have a very basic Workflow definition, but now need to provide a way to call 
 3. A schedule via [Cron Trigger](/workers/configuration/cron-triggers/)
 4. Via the [Workflows REST API](TODO) or [wrangler CLI](/workers/wrangler/commands/#workflows)
 
-Return to the `src/index.ts` file we created in the previous step and add a `fetch` handler that _binds_ to our Workflow.
+Return to the `src/index.ts` file we created in the previous step and add a `fetch` handler that _binds_ to our Workflow. This binding allows us to create new Workflow instances, fetch the status of an existing Workflow, pause and/or terminate a Workflow.
 
 ```ts title="src/index.ts"
+// This can be in the same file as our Workflow definition
+
 export default {
 	async fetch(req: Request, env: Env) {
-        let result = env.MY_WORKFLOW.run()
+        // 
+        const instanceId = new URL(req.url).searchParams.get("instanceId")
+
+        // If an ?instanceId=<id> query parameter is provided, fetch the status
+        // of an existing Workflow by its ID.
+        if (instanceId) {
+            let instance = await env.MYWORKFLOW.get(id);
+			return Response.json({
+				status: await instance.status(),
+			});
+        }
+
+        // Else, create a new instance of our Workflow, passing in any (optional) params
+        // and return the ID.
+		const newId = await crypto.randomUUID();
+		let instance = await env.MYWORKFLOW.create(newId, {});
+		return Response.json({
+			id: instance.id,
+			details: await instance.status(),
+		});
+
 		return Response.json({ result });
 	},
 };
 ```
 
-TODO:
+The code here exposes a HTTP endpoint that generates a random ID and runs the Workflow, returning the ID and the Workflow status. It also accepts an optional `instanceId` query parameter that retrieves the status of a Workflow instance by its ID.
 
-* This is example exposes a HTTP endpoint and runs the Workflow without any parameters
-* In a production application, you might choose to put authentication in front of your endpoint so that only authorized users can run a Workflow
-* Alternatively, you could pass messages to a Workflow [from a Queue consumer](/queues/reference/how-queues-works/#consumers) in order to allow for long-running tasks.
+:::note
 
+In a production application, you might choose to put authentication in front of your endpoint so that only authorized users can run a Workflow. Alternatively, you could pass messages to a Workflow [from a Queue consumer](/queues/reference/how-queues-works/#consumers) in order to allow for long-running tasks.
 
-```ts
-let result = env.MY_WORKFLOW.run({params: {}})
-```
+:::
 
 ## 6. Deploy your Workflow
 
