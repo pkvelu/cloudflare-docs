@@ -58,13 +58,47 @@ export class MyFirstWorkflow implements Workflow {
     // Define a run() method
     async run(event: WorkflowEvent, step: WorkflowStep) {
         // Define one or more steps that optionally return state.
-        let state = step.do("my first step", async () => {
+      	const files = await step.do('my first step', async () => {
+			// Fetch a list of files from $SOME_SERVICE
+			return {
+				inputParams: event,
+				files: [
+					'doc_7392_rev3.pdf',
+					'report_x29_final.pdf',
+					'memo_2024_05_12.pdf',
+					'file_089_update.pdf',
+					'proj_alpha_v2.pdf',
+					'data_analysis_q2.pdf',
+					'notes_meeting_52.pdf',
+					'summary_fy24_draft.pdf',
+				],
+			};
+		});
 
-        })
+		const apiResponse = await step.do('some other step', async () => {
+			let resp = await fetch('https://api.cloudflare.com/client/v4/ips');
+			return await resp.json<any>();
+		});
 
-        step.do("my second step", async () => {
+		await step.sleep('wait on something', '1 minute');
 
-        })
+		await step.do(
+			'make a call to write that could maybe, just might, fail',
+			// {
+			// 	retries: {
+			// 		limit: 5,
+			// 		delay: '5 second',
+			// 		backoff: 'exponential',
+			// 	},
+			// 	timeout: '15 minutes',
+			// },
+			async () => {
+				// Do stuff here, with access to my_value!
+				if (Math.random() > 0.5) {
+					throw new Error('API call to $STORAGE_SYSTEM failed');
+				}
+			}
+		);
     }
 }
 ```
@@ -261,30 +295,104 @@ Because Workflows can be long running, it's possible to have running instances t
 To trigger our Workflow, we will use the `wrangler` CLI and pass in an optional `--payload`. The `payload` will be passed to your Workflow's `run` method handler as an `Event`
 
 ```sh
-npx wrangler workflows trigger <your-workflow> --payload='{}'
+npx wrangler workflows trigger my-workflow '{"hello":"world"}'
 ```
 ```sh output
-# Example output
-# Running Workflow ...
-# Workflow instance created! 
-# Instance ID: 12345-abcdef-98765-fedcba
+# Workflow instance "12dc179f-9f77-4a37-b973-709dca4189ba" has been queued successfully
 ```
 
-TODO - how to trigger from code/bindings:
+To inspect the current status of the Workflow instance we just triggered, we can either reference it by ID or by using the keyword `latest`:
 
-In your `src/index.ts` file...
+```sh
+npx wrangler@workflows workflows instances describe my-workflow latest
+# Or by ID:
+# npx wrangler@workflows workflows instances describe my-workflow 12dc179f-9f77-4a37-b973-709dca4189ba
+```
+```sh output
+Workflow Name:         my-workflow
+Instance Id:           f72c1648-dfa3-45ea-be66-b43d11d216f8
+Version Id:            cedc33a0-11fa-4c26-8a8e-7d28d381a291
+Status:                ✅ Completed
+Trigger:               🌎 API
+Queued:                10/15/2024, 1:55:31 PM
+Success:               ✅ Yes
+Start:                 10/15/2024, 1:55:31 PM
+End:                   10/15/2024, 1:56:32 PM
+Duration:              1 minute
+Last Successful Step:  make a call to write that could maybe, just might, fail-1
+Steps:
 
-```ts title="src/index.ts"
-interface Env {
-    MY_WORKFLOW: Workflow;
-}
+  Name:      my first step-1
+  Type:      🎯 Step
+  Start:     10/15/2024, 1:55:31 PM
+  End:       10/15/2024, 1:55:31 PM
+  Duration:  0 seconds
+  Success:   ✅ Yes
+  Output:    "{\"inputParams\":[{\"timestamp\":\"2024-10-15T13:55:29.363Z\",\"payload\":{\"hello\":\"world\"}}],\"files\":[\"doc_7392_rev3.pdf\",\"report_x29_final.pdf\",\"memo_2024_05_12.pdf\",\"file_089_update.pdf\",\"proj_alpha_v2.pdf\",\"data_analysis_q2.pdf\",\"notes_meeting_52.pdf\",\"summary_fy24_draft.pdf\",\"plan_2025_outline.pdf\"]}"
+┌────────────────────────┬────────────────────────┬───────────┬────────────┐
+│ Start                  │ End                    │ Duration  │ State      │
+├────────────────────────┼────────────────────────┼───────────┼────────────┤
+│ 10/15/2024, 1:55:31 PM │ 10/15/2024, 1:55:31 PM │ 0 seconds │ ✅ Success │
+└────────────────────────┴────────────────────────┴───────────┴────────────┘
 
-export default {
-    async fetch(req: Request, env: Env, ctx: ExecutionContext) {
-        const result = env.MY_WORKFLOW.run()
-        return Response.json(result)
-    }
-}
+  Name:      some other step-1
+  Type:      🎯 Step
+  Start:     10/15/2024, 1:55:31 PM
+  End:       10/15/2024, 1:55:31 PM
+  Duration:  0 seconds
+  Success:   ✅ Yes
+  Output:    "{\"result\":{\"ipv4_cidrs\":[\"173.245.48.0/20\",\"103.21.244.0/22\",\"103.22.200.0/22\",\"103.31.4.0/22\",\"141.101.64.0/18\",\"108.162.192.0/18\",\"190.93.240.0/20\",\"188.114.96.0/20\",\"197.234.240.0/22\",\"198.41.128.0/17\",\"162.158.0.0/15\",\"104.16.0.0/13\",\"104.24.0.0/14\",\"172.64.0.0/13\",\"131.0.72.0/22\"],\"ipv6_cidrs\":[\"2400:cb00::/32\",\"2606:4700::/32\",\"2803:f800::/32\",\"2405:b500::/32\",\"2405:8100::/32\",\"2a06:98c0::/29\",\"2c0f:f248::/32\"],\"etag\":\"38f79d050aa027e3be3865e495dcc9bc\"},\"success\":true,\"errors\":[],\"messages\":[]}"
+┌────────────────────────┬────────────────────────┬───────────┬────────────┐
+│ Start                  │ End                    │ Duration  │ State      │
+├────────────────────────┼────────────────────────┼───────────┼────────────┤
+│ 10/15/2024, 1:55:31 PM │ 10/15/2024, 1:55:31 PM │ 0 seconds │ ✅ Success │
+└────────────────────────┴────────────────────────┴───────────┴────────────┘
+
+  Name:      wait on something-1
+  Type:      💤 Sleeping
+  Start:     10/15/2024, 1:55:31 PM
+  End:       10/15/2024, 1:56:31 PM
+  Duration:  1 minute
+
+  Name:      make a call to write that could maybe, just might, fail-1
+  Type:      🎯 Step
+  Start:     10/15/2024, 1:56:31 PM
+  End:       10/15/2024, 1:56:32 PM
+  Duration:  1 second
+  Success:   ✅ Yes
+  Output:    null
+┌────────────────────────┬────────────────────────┬───────────┬────────────┬───────────────────────────────────────────┐
+│ Start                  │ End                    │ Duration  │ State      │ Error                                     │
+├────────────────────────┼────────────────────────┼───────────┼────────────┼───────────────────────────────────────────┤
+│ 10/15/2024, 1:56:31 PM │ 10/15/2024, 1:56:31 PM │ 0 seconds │ ❌ Error   │ Error: API call to $STORAGE_SYSTEM failed │
+├────────────────────────┼────────────────────────┼───────────┼────────────┼───────────────────────────────────────────┤
+│ 10/15/2024, 1:56:32 PM │ 10/15/2024, 1:56:32 PM │ 0 seconds │ ✅ Success │                                           │
+└────────────────────────┴────────────────────────┴───────────┴────────────┴───────────────────────────────────────────┘
+```
+
+From the output above, we can inspect: 
+
+* The status (success, failure, running) of each step
+* Any state emitted by the step
+* Any `sleep` state, including when the Workflow will wake up
+* Retries associated with each step.
+* Errors, including exception messages
+
+:::note
+
+You do not have to wait for a Workflow instance to finish executing to inspect its current status. The `wrangler workflows instances describe` sub-command will show the status of an in-progress instance, including any persisted state, if it is sleeping, and any errors or retries. This can be especially useful when debugging a Workflow during development.
+
+:::
+
+
+In the previous step, we also bound a Workers script to our Workflow. You can trigger a Workflow by visiting the (deployed) Workers script in a browser or with any HTTP client.
+
+```sh
+# This must match the URL provided in step 6
+curl -s https://workflows-tutorial.YOUR_WORKERS_SUBDOMAIN.workers.dev/
+```
+```sh output
+{"id":"16ac31e5-db9d-48ae-a58f-95b95422d0fa","details":{"status":"queued","error":null,"output":null}}
 ```
 
 ## 7. (Optional) Clean up
